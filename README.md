@@ -28,7 +28,7 @@ What if you could pay **$0 at entry** and only pay when you make a sale? What if
 ## Real-World Scenarios Powered by MarketCraft Protocol
 
 ### Scenario 1: The Indie Video Game Supply Chain (Live in Our 6-Act Sui Testnet Demo)
-1. **3D Artist (`Artist_A`) in Blender:** Designs a stylized **Cyber Sword** in real Blender 5.3 using the MarketCraft add-on. Their Sui Wallet ID auto-syncs with zero copy-pasting. One click seals the mesh into a tamper-evident **`.mcraft`** file stamped with their `CreatorUID`, Ground-Up Genesis Proof, and SHA-256 fingerprint, and publishes it to the MarketCraft Marketplace.
+1. **3D Artist (`Artist_A`) in Blender:** Designs a stylized **Cyber Sword** in Blender 5.3 using the MarketCraft add-on. Their Sui Wallet ID auto-syncs with zero copy-pasting. One click seals the mesh into a tamper-evident **`.mcraft`** file stamped with their `CreatorUID`, Ground-Up Genesis Proof, and SHA-256 fingerprint, and publishes it to the MarketCraft Marketplace.
 2. **Indie Game Developer (`Dev_B`) Composes Without Stealing:** `Dev_B` searches MarketCraft, licenses **`cyber_sword_v1.mcraft`**, and imports it Read-Only into their own project alongside their **Dummy Armor** and game logic. `Dev_B` **cannot** overwrite `Artist_A`'s source file (`Code 1066`) and **cannot** re-publish the sword alone (`Abort 1065` on-chain plagiarism block). Instead, the MarketCraft plugin **automatically locks `Artist_A`'s UAI into the combined game's Tier-3B royalty lineage**.
 3. **Player (`Player_C`) Buys the Game → Atomic 8-Tier Waterfall on Sui:** The instant `Player_C` purchases the game, a **single atomic Sui Move transaction** settles `100.00%` with zero mathematical dust:
    - **Tier 0 (`1.50%`):** Genesis Protocol Treasury (`0x9329...c0a7`)

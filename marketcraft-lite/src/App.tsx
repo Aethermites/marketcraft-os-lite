@@ -442,7 +442,7 @@ export default function App() {
           setBlenderPublishedAssets((prev) => {
             if (list.length > prev.length && list[0]) {
               setSwordPublished(true);
-              pushLog(`🎨 REAL BLENDER 5.3 PUBLISH RECEIVED ✅ "${list[0].title}" by ${list[0].creator_sui_id.slice(0, 12)}... (SHA-256: ${list[0].payload_sha256.slice(0, 16)}...)`);
+              pushLog(`🎨 BLENDER 5.3 PUBLISH RECEIVED ✅ "${list[0].title}" by ${list[0].creator_sui_id.slice(0, 12)}... (SHA-256: ${list[0].payload_sha256.slice(0, 16)}...)`);
             }
             return list;
           });
@@ -1432,7 +1432,7 @@ export default function App() {
               {activeRealWalletAddress && (
                 <div className="rounded-xl bg-slate-950 border border-slate-800 p-4 text-xs font-mono space-y-1.5 text-slate-300">
                   <div>
-                    Persistent Sui Address:{' '}
+                    {customWalletAddress.trim() ? 'Watch Address (Pasted · Read-Only): ' : 'Active Browser Signer Wallet (Has Private Key): '}
                     <a
                       href={`https://suiscan.xyz/testnet/account/${activeRealWalletAddress}`}
                       target="_blank"
@@ -1442,6 +1442,11 @@ export default function App() {
                       {activeRealWalletAddress}
                     </a>
                   </div>
+                  {customWalletAddress.trim() && liveKeypair && (
+                    <div className="text-amber-300">
+                      Note: On-chain Testnet transactions sign with your Browser Signer Wallet ({liveKeypair.toSuiAddress().slice(0, 14)}...) since pasted addresses don't share private keys.
+                    </div>
+                  )}
                   <div>
                     Live Testnet Balance (Auto-updates every 5s):{' '}
                     <span className="text-emerald-300 font-bold">
