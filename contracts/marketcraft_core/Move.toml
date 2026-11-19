@@ -1,0 +1,27 @@
+# AetherMites // Hubert Silaa - MarketCraft v0.5.2 Genesis Block
+# License: Apache-2.0 / AGPLv3 Attribution-Preserving Specification
+#
+# Physical Package #1: IMMUTABLE SUPREME FOUNDER KERNEL (`marketcraft_core`)
+# Owns:
+#   - Genesis Founder Constitutional Bindings (`0x9329...c0a7`, 150 bps)
+#   - 10,000 bps 8-Tier Industrial Supply-Chain Waterfall Math (Two-Pass Zero-Dust)
+#   - ProtocolTreasuryUSD<T> & RetroactiveToolVault<T> (600 bps ArtCraft / OSS)
+#   - CreatorUID (1-Human-1-Account Identity)
+#   - Dual-Key DepartmentRegistry & Scoped DepartmentUpgradeCap
+#
+# SECURITY GUARANTEE:
+#   Satellite department packages (`dept_genge`, `dept_streamcraft`, `dept_playcraft`, etc.)
+#   import `marketcraft_core` as a read/call dependency ONLY. Their UpgradeCaps can NEVER
+#   upgrade or mutate this package, its Founder address, or its 10,000 bps math.
+
+[package]
+name = "aethermites_marketcraft_core"
+edition = "2024.beta"
+authors = ["Hubert Silaa (AetherMites)"]
+version = "0.7.0"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "16d2dc1e05edcf600320a82e17b9392edb0983a5" }
+
+[addresses]
+marketcraft_core = "0x0"
