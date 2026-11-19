@@ -333,16 +333,24 @@ try:
     _IMPORTED_LINEAGE_DEPENDENCIES: List[Dict[str, str]] = []
     _SIDECAR_ORIGIN = "http://tauri.localhost"
     _SIDECAR_URL = "http://127.0.0.1:7470"
-    _LITE_BRIDGE_URL = "http://127.0.0.1:1425"
+    _LITE_BRIDGE_URL = "https://marketcraft-os-lite.netlify.app"
+    _LITE_BRIDGE_FALLBACK_URL = "http://127.0.0.1:1425"
 
     def _fetch_active_marketcraft_session() -> Dict[str, Any]:
-        """Auto-reads the active Sui Wallet ID from MarketCraft OS Lite (zero copy-pasting!)."""
-        try:
-            req = urllib.request.Request(f"{_LITE_BRIDGE_URL}/api/local/session", method="GET")
-            with urllib.request.urlopen(req, timeout=3) as resp:
-                return json.loads(resp.read().decode("utf-8"))
-        except Exception:
-            pass
+        """Auto-reads the active Sui Wallet ID from live Netlify MarketCraft OS Lite (or local fallback)."""
+        for base_url in (_LITE_BRIDGE_URL, _LITE_BRIDGE_FALLBACK_URL):
+            try:
+                req = urllib.request.Request(
+                    f"{base_url}/api/local/session",
+                    headers={"User-Agent": "MarketCraft-Blender-Addon/0.7"},
+                    method="GET",
+                )
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    if isinstance(data, dict) and data.get("sui_address"):
+                        return data
+            except Exception:
+                continue
         local_app_data = os.environ.get("LOCALAPPDATA", "")
         if local_app_data:
             session_path = os.path.join(local_app_data, "MarketCraft", "active-session.json")
@@ -355,17 +363,21 @@ try:
         return {"sui_address": "", "handle": "", "signed_in": False, "entitled_buyers": []}
 
     def _notify_lite_marketplace(item: Dict[str, Any]) -> None:
-        try:
-            req = urllib.request.Request(
-                f"{_LITE_BRIDGE_URL}/api/local/blender-publish",
-                data=json.dumps(item).encode("utf-8"),
-                headers={"Content-Type": "application/json"},
-                method="POST",
-            )
-            with urllib.request.urlopen(req, timeout=4):
-                pass
-        except Exception:
-            pass
+        for base_url in (_LITE_BRIDGE_URL, _LITE_BRIDGE_FALLBACK_URL):
+            try:
+                req = urllib.request.Request(
+                    f"{base_url}/api/local/blender-publish",
+                    data=json.dumps(item).encode("utf-8"),
+                    headers={
+                        "Content-Type": "application/json",
+                        "User-Agent": "MarketCraft-Blender-Addon/0.7",
+                    },
+                    method="POST",
+                )
+                with urllib.request.urlopen(req, timeout=6):
+                    pass
+            except Exception:
+                continue
 
     def _load_local_sidecar_token() -> str:
         local_app_data = os.environ.get("LOCALAPPDATA", "")
@@ -503,17 +515,21 @@ try:
         def execute(self, context: Any) -> set[str]:
             context.scene.marketcraft_account = ""
             context.scene.marketcraft_token = ""
-            try:
-                req = urllib.request.Request(
-                    f"{_LITE_BRIDGE_URL}/api/local/session",
-                    data=json.dumps({"sui_address": "", "handle": "", "signed_in": False}).encode("utf-8"),
-                    headers={"Content-Type": "application/json"},
-                    method="POST",
-                )
-                with urllib.request.urlopen(req, timeout=2):
-                    pass
-            except Exception:
-                pass
+            for base_url in (_LITE_BRIDGE_URL, _LITE_BRIDGE_FALLBACK_URL):
+                try:
+                    req = urllib.request.Request(
+                        f"{base_url}/api/local/session",
+                        data=json.dumps({"sui_address": "", "handle": "", "signed_in": False}).encode("utf-8"),
+                        headers={
+                            "Content-Type": "application/json",
+                            "User-Agent": "MarketCraft-Blender-Addon/0.7",
+                        },
+                        method="POST",
+                    )
+                    with urllib.request.urlopen(req, timeout=4):
+                        pass
+                except Exception:
+                    continue
             context.scene["marketcraft_last_status"] = "Signed out — .mcraft open/edit locked."
             self.report({"INFO"}, "Signed out of MarketCraft Sui ID.")
             return {"FINISHED"}
