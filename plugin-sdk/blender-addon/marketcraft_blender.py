@@ -43,9 +43,40 @@ PERM_EXTEND_SOCKETS: int = 2
 PERM_FULL_DERIVATIVE: int = 3
 MIN_VERIFIED_HEARTBEATS: int = 3
 E_UNVERIFIED_EXTERNAL_IMPORT: int = 1005
+E_PLAGIARIZED_PAYLOAD_HASH: int = 1065
 E_UNAUTHORIZED_ARTIFACT_MODIFICATION: int = 1066
 E_MARKETCRAFT_SIGNIN_REQUIRED: int = 1069
 E_ENTITLEMENT_RECEIPT_MISSING: int = 1070
+
+RESTRICTED_NON_CREATOR_ROLES = {"signed_out", "player_c", "attacker_x"}
+
+
+def verify_publish_role_and_originality(
+    role: str,
+    active_sui_id: str,
+    payload_sha256: str,
+    existing_published: Optional[List[Dict[str, Any]]] = None,
+) -> None:
+    """Enforces that signed-out users, Player_C (Play-Only), and Attacker_X cannot publish assets,
+    and blocks re-publishing any mesh hash already owned by another creator (Abort 1065)."""
+    if not active_sui_id or not active_sui_id.strip():
+        raise MarketCraftAuthRequiredError(
+            "MarketCraft Sui ID Sign-In Required — Cannot publish .mcraft asset while signed out."
+        )
+    norm_role = (role or "").strip().lower()
+    if norm_role in RESTRICTED_NON_CREATOR_ROLES:
+        raise MarketCraftUnauthorizedEditError(
+            f"Role '{norm_role}' has Restricted Play-Only / Unauthorized access and CANNOT publish or modify 3D assets in Blender."
+        )
+    for item in existing_published or []:
+        if (
+            item.get("payload_sha256") == payload_sha256
+            and item.get("creator_sui_id")
+            and item.get("creator_sui_id") != active_sui_id
+        ):
+            raise MarketCraftUnauthorizedEditError(
+                f"Abort {E_PLAGIARIZED_PAYLOAD_HASH} (EPlagiarizedPayloadHash): Mesh SHA-256 already owned by {str(item.get('creator_sui_id'))[:12]}...!"
+            )
 
 bl_info = {
     "name": "MarketCraft Protocol v0.5.2 — AssemblyCraft Genesis & Living Asset Bridge",
@@ -362,6 +393,22 @@ try:
                     pass
         return {"sui_address": "", "handle": "", "signed_in": False, "entitled_buyers": []}
 
+    def _fetch_published_marketplace_assets() -> List[Dict[str, Any]]:
+        for base_url in (_LITE_BRIDGE_URL, _LITE_BRIDGE_FALLBACK_URL):
+            try:
+                req = urllib.request.Request(
+                    f"{base_url}/api/local/blender-publish",
+                    headers={"User-Agent": "MarketCraft-Blender-Addon/0.7"},
+                    method="GET",
+                )
+                with urllib.request.urlopen(req, timeout=5) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    if isinstance(data, list):
+                        return data
+            except Exception:
+                continue
+        return []
+
     def _notify_lite_marketplace(item: Dict[str, Any]) -> None:
         for base_url in (_LITE_BRIDGE_URL, _LITE_BRIDGE_FALLBACK_URL):
             try:
@@ -584,16 +631,18 @@ try:
         bl_label = "Seal & Publish Protected .mcraft to Marketplace"
 
         def execute(self, context: Any) -> set[str]:
-            account = getattr(context.scene, "marketcraft_account", "").strip()
-            if not account:
-                sess = _fetch_active_marketcraft_session()
-                account = str(sess.get("sui_address", "")).strip()
-                context.scene.marketcraft_account = account
+            sess = _fetch_active_marketcraft_session()
+            role = str(sess.get("role", "")).strip()
+            synced_addr = str(sess.get("sui_address", "")).strip()
+            account = synced_addr if sess.get("signed_in") else getattr(context.scene, "marketcraft_account", "").strip()
+            context.scene.marketcraft_account = account
             mcraft_path = getattr(context.scene, "marketcraft_mcraft_path", "").strip()
             if not mcraft_path:
                 mcraft_path = os.path.join(tempfile.gettempdir(), "marketcraft_demo_asset.mcraft")
                 context.scene.marketcraft_mcraft_path = mcraft_path
             try:
+                # Enforce Role Gate BEFORE exporting (blocks Signed Out, Player_C, and Attacker_X!)
+                verify_publish_role_and_originality(role, account, "", [])
                 _GLOBAL_BLENDER_GENESIS_LOG.creator_uid = account or _GLOBAL_BLENDER_GENESIS_LOG.creator_uid
                 tmp_obj = os.path.join(tempfile.gettempdir(), f"marketcraft_seal_{_BLENDER_PROJECT_UUID[:8]}.obj")
                 if hasattr(bpy.ops.wm, "obj_export"):
@@ -602,6 +651,11 @@ try:
                     bpy.ops.export_scene.obj(filepath=tmp_obj)
                 with open(tmp_obj, "rb") as f:
                     raw_bytes = f.read()
+                mesh_sha256 = hashlib.sha256(raw_bytes).hexdigest()
+                # Enforce Anti-Plagiarism SHA-256 check against live published assets (Abort 1065!)
+                verify_publish_role_and_originality(
+                    role, account, mesh_sha256, _fetch_published_marketplace_assets()
+                )
                 header = stamp_and_export_mcraft_header(
                     genesis_log=_GLOBAL_BLENDER_GENESIS_LOG,
                     artifact_uai_id=f"0x{_BLENDER_PROJECT_UUID.replace('-', '')}",
@@ -903,6 +957,14 @@ def _run_self_test() -> None:
     opened_owner = open_mcraft_asset(sealed, active_sui_id=artist_a, require_edit_rights=True)
     assert opened_owner["raw_mesh_bytes"] == raw_sword and opened_owner["can_edit_source"] is True
     print("  [PASS] Owner Artist_A unlocked .mcraft asset with full edit rights")
+
+    # 4. Player_C (Play-Only) MUST be blocked from publishing in Blender (Code 1066)
+    try:
+        verify_publish_role_and_originality("player_c", "0x3333333333333333333333333333333333333333333333333333333333333333", sealed["payload_sha256"], [])
+        raise AssertionError("Expected MarketCraftUnauthorizedEditError for player_c publish")
+    except MarketCraftUnauthorizedEditError as exc:
+        assert exc.error_code == E_UNAUTHORIZED_ARTIFACT_MODIFICATION
+        print(f"  [PASS] Player_C (Play-Only) blocked from publishing in Blender: {exc}")
 
 
 if __name__ == "__main__":
