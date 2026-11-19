@@ -240,12 +240,14 @@ export default function App() {
   );
   const [liveSuiBalance, setLiveSuiBalance] = useState<number | null>(null);
   const [isRefreshingBalance, setIsRefreshingBalance] = useState<boolean>(false);
-  const [liveCreatorUidId, setLiveCreatorUidId] = useState<string>(
-    () => localStorage.getItem('marketcraft_lite_uid_id') || '',
-  );
-  const [liveArtifactId, setLiveArtifactId] = useState<string>(
-    () => localStorage.getItem('marketcraft_lite_art_id') || '',
-  );
+  const [liveCreatorUidId, setLiveCreatorUidId] = useState<string>(() => {
+    const addr = hasSavedTestnetWallet() ? loadOrCreateTestnetWallet(false).toSuiAddress() : '';
+    return addr ? localStorage.getItem(`marketcraft_lite_uid_${addr}`) || '' : '';
+  });
+  const [liveArtifactId, setLiveArtifactId] = useState<string>(() => {
+    const addr = hasSavedTestnetWallet() ? loadOrCreateTestnetWallet(false).toSuiAddress() : '';
+    return addr ? localStorage.getItem(`marketcraft_lite_art_${addr}`) || '' : '';
+  });
   const [liveTxLinks, setLiveTxLinks] = useState<Array<{ label: string; digest: string }>>(() => {
     try {
       const raw = localStorage.getItem('marketcraft_lite_tx_links');
@@ -319,11 +321,15 @@ export default function App() {
     localStorage.setItem('marketcraft_lite_custom_addr', customWalletAddress);
   }, [customWalletAddress]);
   useEffect(() => {
-    if (liveCreatorUidId) localStorage.setItem('marketcraft_lite_uid_id', liveCreatorUidId);
-  }, [liveCreatorUidId]);
+    if (liveKeypair && liveCreatorUidId) {
+      localStorage.setItem(`marketcraft_lite_uid_${liveKeypair.toSuiAddress()}`, liveCreatorUidId);
+    }
+  }, [liveKeypair, liveCreatorUidId]);
   useEffect(() => {
-    if (liveArtifactId) localStorage.setItem('marketcraft_lite_art_id', liveArtifactId);
-  }, [liveArtifactId]);
+    if (liveKeypair && liveArtifactId) {
+      localStorage.setItem(`marketcraft_lite_art_${liveKeypair.toSuiAddress()}`, liveArtifactId);
+    }
+  }, [liveKeypair, liveArtifactId]);
   useEffect(() => {
     localStorage.setItem('marketcraft_lite_tx_links', JSON.stringify(liveTxLinks.slice(0, 15)));
   }, [liveTxLinks]);
@@ -674,12 +680,16 @@ export default function App() {
     }
     setLiveBusy('Executing REAL Sui Testnet 8-Tier Waterfall (0.01 SUI)...');
     try {
-      let uidId = liveCreatorUidId;
+      const signerAddr = liveKeypair.toSuiAddress();
+      let uidId = localStorage.getItem(`marketcraft_lite_uid_${signerAddr}`) || '';
       if (!uidId) {
-        const handle = `mc_${liveKeypair.toSuiAddress().slice(2, 8)}`;
+        const handle = `mc_${signerAddr.slice(2, 8)}`;
         const mintRes = await mintRealCreatorUidOnTestnet(liveKeypair, handle);
         uidId = mintRes.creatorUidId || '';
-        if (uidId) setLiveCreatorUidId(uidId);
+        if (uidId) {
+          setLiveCreatorUidId(uidId);
+          localStorage.setItem(`marketcraft_lite_uid_${signerAddr}`, uidId);
+        }
         setLiveTxLinks((prev) => [{ label: 'Mint CreatorUID', digest: mintRes.digest }, ...prev]);
         pushLog(`⛓️ Auto-minted CreatorUID on Sui Testnet: ${mintRes.digest}`);
       }
@@ -756,10 +766,14 @@ export default function App() {
 
   const handleInitLiveWallet = async (forceNew = false) => {
     const kp = loadOrCreateTestnetWallet(forceNew);
-    setLiveKeypair(kp);
-    setLiveCreatorUidId('');
-    setLiveArtifactId('');
     const addr = kp.toSuiAddress();
+    setLiveKeypair(kp);
+    setLiveCreatorUidId(forceNew ? '' : localStorage.getItem(`marketcraft_lite_uid_${addr}`) || '');
+    setLiveArtifactId(forceNew ? '' : localStorage.getItem(`marketcraft_lite_art_${addr}`) || '');
+    if (forceNew) {
+      localStorage.removeItem('marketcraft_lite_uid_id');
+      localStorage.removeItem('marketcraft_lite_art_id');
+    }
     pushLog(`🔑 Live Sui Testnet Wallet ready: ${addr.slice(0, 14)}...`);
     try {
       const bal = await fetchTestnetSuiBalance(addr);
